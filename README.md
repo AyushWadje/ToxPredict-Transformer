@@ -13,3 +13,4 @@ PERFORMANCE METRICS:
 
 TOXICITY ENDPOINTS:
 NR-AR, NR-AR-LBD, NR-AhR, NR-Aromatase, NR-ER, NR-ER-LBD, NR-PPAR-gamma, SR-ARE, SR-ATAD5, SR-HSE, SR-MMP, SR-p53
+<img width="2384" height="1482" alt="download" src="https://github.com/user-attachments/assets/d808191b-05b0-4faa-85f4-3a90f4a31c30" />
