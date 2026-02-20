@@ -45,14 +45,15 @@ task_names = ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER',
               'NR-ER-LBD', 'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 
               'SR-HSE', 'SR-MMP', 'SR-p53']
 
-def predict_toxicity(smiles_input):
+def predict_toxicity(smiles_input, progress=gr.Progress()):
     try:
         smiles_input = smiles_input.replace('\r\n', '\n').replace('\r', '\n')
         smiles_list = [s.strip() for s in smiles_input.split('\n') if s.strip()]
         
         if not smiles_list:
-            return "⚠️ Please enter at least one SMILES string"
+            return "⚠️ Please enter at least one SMILES string", []
         
+        progress(0, desc="Tokenizing...")
         tokens = tokenizer(smiles_list, padding='max_length', truncation=True, 
                           max_length=128, return_tensors="np")
         test_dataset = dc.data.NumpyDataset(
@@ -62,58 +63,79 @@ def predict_toxicity(smiles_input):
             ids=smiles_list
         )
         
+        progress(0.2, desc="Running Model Inference...")
         predictions = model.predict(test_dataset)
         predictions = expit(predictions)
         
-        results_text = f"📊 Analyzed {len(smiles_list)} molecule(s)\n\n"
+        results_data = []
+        high_risk_count = 0
         
         for i, smiles in enumerate(smiles_list):
+            progress((i + 1) / len(smiles_list), desc=f"Processing molecule {i+1}/{len(smiles_list)}")
             max_risk = predictions[i].max()
             
             if max_risk > 0.8:
                 risk_level = "🔴 HIGH RISK"
+                high_risk_count += 1
             elif max_risk > 0.5:
                 risk_level = "🟡 MEDIUM RISK"
             else:
                 risk_level = "🟢 LOW RISK"
             
-            results_text += f"\n{'='*70}\n"
-            results_text += f"MOLECULE #{i+1}\n"
-            results_text += f"SMILES: {smiles}\n"
-            results_text += f"Overall Risk: {risk_level} (Max: {max_risk:.1%})\n"
-            results_text += f"{'='*70}\n\n"
-            results_text += "Toxicity Predictions by Endpoint:\n"
-            results_text += "-" * 70 + "\n"
+            # Formatting probabilities
+            row = [smiles, risk_level, f"{max_risk:.1%}"]
+            for prob in predictions[i]:
+                row.append(f"{prob:.1%}")
             
-            for j, task in enumerate(task_names):
-                prob = predictions[i, j]
-                bar_length = int(prob * 30)
-                bar = "█" * bar_length + "░" * (30 - bar_length)
-                warning = " ⚠️" if prob > 0.7 else ""
-                results_text += f"{task:15s}: {prob:6.1%} |{bar}|{warning}\n"
+            results_data.append(row)
             
-            high_risk_tasks = [task_names[j] for j in range(12) if predictions[i, j] > 0.7]
-            if high_risk_tasks:
-                results_text += f"\n⚠️  HIGH RISK ENDPOINTS: {', '.join(high_risk_tasks)}\n"
-            results_text += "\n"
+        summary = f"""
+### Analysis Complete
+- **Total Molecules:** {len(smiles_list)}
+- **High Risk:** {high_risk_count}
+- **Medium/Low Risk:** {len(smiles_list) - high_risk_count}
+"""
+        return summary, results_data
         
-        return results_text
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ Error: {str(e)}", []
 
-demo = gr.Interface(
-    fn=predict_toxicity,
-    inputs=gr.Textbox(label="Enter SMILES (one per line)", 
-                     placeholder="CCO\nCC(=O)O\nc1ccccc1", lines=8),
-    outputs=gr.Textbox(label="Toxicity Predictions", lines=30, show_copy_button=True),
-    title="🧪 ChemBERTa Toxicity Predictor",
-    description="Predicts toxicity across 12 endpoints using fine-tuned ChemBERTa-77M-MTR model. **Test ROC-AUC: 82.8%**",
-    examples=[
-        ["CCO"],
-        ["CCO\nCC(=O)O\nc1ccccc1"],
-        ["CC(C)(c1ccc(cc1)O)c2ccc(cc2)O"],
-    ],
-    theme=gr.themes.Soft()
-)
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# 🧪 ChemBERTa Toxicity Predictor")
+    gr.Markdown("Predicts toxicity across 12 endpoints using fine-tuned ChemBERTa-77M-MTR model. **Test ROC-AUC: 82.8%**")
 
-demo.launch()
+    with gr.Row():
+        with gr.Column():
+            input_text = gr.Textbox(
+                label="Enter SMILES (one per line)",
+                placeholder="CCO\nCC(=O)O\nc1ccccc1",
+                lines=8
+            )
+            analyze_btn = gr.Button("Analyze Toxicity", variant="primary")
+
+        with gr.Column():
+            summary_output = gr.Markdown(label="Analysis Summary")
+
+    results_output = gr.DataFrame(
+        label="Detailed Predictions",
+        headers=["SMILES", "Overall Risk", "Max Probability"] + task_names,
+        interactive=False
+    )
+
+    analyze_btn.click(
+        fn=predict_toxicity,
+        inputs=input_text,
+        outputs=[summary_output, results_output]
+    )
+
+    gr.Examples(
+        examples=[
+            ["CCO"],
+            ["CCO\nCC(=O)O\nc1ccccc1"],
+            ["CC(C)(c1ccc(cc1)O)c2ccc(cc2)O"],
+        ],
+        inputs=input_text
+    )
+
+if __name__ == "__main__":
+    demo.launch()
