@@ -4,4 +4,4 @@ transformers==4.30.0
 numpy==1.24.3
 scipy
 gradio==4.0.0
-scikit-learn
+scikit-learn==1.3.2
