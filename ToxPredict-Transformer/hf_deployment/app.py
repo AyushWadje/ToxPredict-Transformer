@@ -1,6 +1,10 @@
 
 import gradio as gr
+import logging
 import torch
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 import torch.nn as nn
 import deepchem as dc
 import numpy as np
@@ -98,7 +102,8 @@ def predict_toxicity(smiles_input):
         
         return results_text
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        logging.error("An error occurred during toxicity prediction", exc_info=True)
+        return "❌ An error occurred during processing. Please check your input and try again."
 
 demo = gr.Interface(
     fn=predict_toxicity,
