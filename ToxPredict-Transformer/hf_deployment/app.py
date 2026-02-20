@@ -64,7 +64,8 @@ def predict_toxicity(smiles_input):
         predictions = model.predict(test_dataset)
         predictions = torch.sigmoid(torch.tensor(predictions)).numpy()
         
-        results_text = f"📊 Analyzed {len(smiles_list)} molecule(s)\n\n"
+        results = [f"📊 Analyzed {len(smiles_list)} molecule(s)\n\n"]
+        append = results.append
         
         for i, smiles in enumerate(smiles_list):
             max_risk = predictions[i].max()
@@ -76,27 +77,27 @@ def predict_toxicity(smiles_input):
             else:
                 risk_level = "🟢 LOW RISK"
             
-            results_text += f"\n{'='*70}\n"
-            results_text += f"MOLECULE #{i+1}\n"
-            results_text += f"SMILES: {smiles}\n"
-            results_text += f"Overall Risk: {risk_level} (Max: {max_risk:.1%})\n"
-            results_text += f"{'='*70}\n\n"
-            results_text += "Toxicity Predictions by Endpoint:\n"
-            results_text += "-" * 70 + "\n"
+            append(f"\n{'='*70}\n")
+            append(f"MOLECULE #{i+1}\n")
+            append(f"SMILES: {smiles}\n")
+            append(f"Overall Risk: {risk_level} (Max: {max_risk:.1%})\n")
+            append(f"{'='*70}\n\n")
+            append("Toxicity Predictions by Endpoint:\n")
+            append("-" * 70 + "\n")
             
             for j, task in enumerate(task_names):
                 prob = predictions[i, j]
                 bar_length = int(prob * 30)
                 bar = "█" * bar_length + "░" * (30 - bar_length)
                 warning = " ⚠️" if prob > 0.7 else ""
-                results_text += f"{task:15s}: {prob:6.1%} |{bar}|{warning}\n"
+                append(f"{task:15s}: {prob:6.1%} |{bar}|{warning}\n")
             
             high_risk_tasks = [task_names[j] for j in range(12) if predictions[i, j] > 0.7]
             if high_risk_tasks:
-                results_text += f"\n⚠️  HIGH RISK ENDPOINTS: {', '.join(high_risk_tasks)}\n"
-            results_text += "\n"
+                append(f"\n⚠️  HIGH RISK ENDPOINTS: {', '.join(high_risk_tasks)}\n")
+            append("\n")
         
-        return results_text
+        return "".join(results)
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
@@ -115,4 +116,5 @@ demo = gr.Interface(
     theme=gr.themes.Soft()
 )
 
-demo.launch()
+if __name__ == "__main__":
+    demo.launch()
