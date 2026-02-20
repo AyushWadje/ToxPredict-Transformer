@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import deepchem as dc
 import numpy as np
+from scipy.special import expit
 from transformers import AutoTokenizer, AutoModel
 
 print("Loading model...")
@@ -62,7 +63,7 @@ def predict_toxicity(smiles_input):
         )
         
         predictions = model.predict(test_dataset)
-        predictions = torch.sigmoid(torch.tensor(predictions)).numpy()
+        predictions = expit(predictions)
         
         results_text = f"📊 Analyzed {len(smiles_list)} molecule(s)\n\n"
         
